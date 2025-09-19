@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteCategory = exports.updateCategory = exports.createCategory = exports.getCategory = exports.getCategories = void 0;
 const express_validator_1 = require("express-validator");
 const Category_1 = __importDefault(require("../models/Category"));
-const getCategories = async (req, res, next) => {
+const getCategories = async (_req, res, next) => {
     try {
         const categories = await Category_1.default.find().sort({ name: 1 });
         res.json(categories);

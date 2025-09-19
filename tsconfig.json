@@ -21,7 +21,8 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "baseUrl": "."
+    "baseUrl": ".",
+    "noEmitOnError": false,   // still build JS even if TS errors
   },
   "exclude": ["node_modules"],
   "include": ["./**/*.ts"]

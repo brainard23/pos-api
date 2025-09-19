@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { validationResult } from 'express-validator';
-import Transaction, { ITransaction, PaymentMethod } from '../models/Transaction';
+import Transaction, { PaymentMethod } from '../models/Transaction';
 import Product from '../models/Product';
 
 /**

@@ -8,7 +8,7 @@ import Category from '../models/Category';
  * @param res Response object
  * @param next NextFunction for error handling
  */
-export const getCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getCategories = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const categories = await Category.find().sort({ name: 1 });
     res.json(categories);

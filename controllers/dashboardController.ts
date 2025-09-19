@@ -8,7 +8,7 @@ import Transaction from '../models/Transaction';
  * @param res Response object
  * @param next NextFunction for error handling
  */
-export const getDashboard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getDashboard = async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const lowStockThreshold = 5;
     const now = new Date();

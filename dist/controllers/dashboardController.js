@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getDashboard = void 0;
 const Product_1 = __importDefault(require("../models/Product"));
 const Transaction_1 = __importDefault(require("../models/Transaction"));
-const getDashboard = async (req, res, next) => {
+const getDashboard = async (_req, res, next) => {
     try {
         const lowStockThreshold = 5;
         const now = new Date();

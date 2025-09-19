@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteSupplier = exports.updateSupplier = exports.createSupplier = exports.getSupplier = exports.getSuppliers = void 0;
 const express_validator_1 = require("express-validator");
 const Supplier_1 = __importDefault(require("../models/Supplier"));
-const getSuppliers = async (req, res, next) => {
+const getSuppliers = async (_req, res, next) => {
     try {
         const suppliers = await Supplier_1.default.find().sort({ name: 1 });
         res.json(suppliers);
