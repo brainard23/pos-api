@@ -26,7 +26,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
 
     const total = await Product.countDocuments(query);
 
-    const productsQuery = Product.find(query).sort({ name: 1 }).skip((page - 1) * limit);
+    const productsQuery = Product.find(query).sort({ catefory: 1 }).skip((page - 1) * limit);
 
     if (limit > 0) {
     productsQuery.limit(limit);
