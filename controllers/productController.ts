@@ -19,7 +19,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
           $or: [
             { name: { $regex: search, $options: 'i' } },
             { sku: { $regex: search, $options: 'i' } },
-            { description: { $regex: search, $options: 'i' } },
+            { category: { $regex: search, $options: 'i' } },
           ],
         }
       : {};
