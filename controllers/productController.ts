@@ -8,41 +8,78 @@ import Product from '../models/Product';
  * @param res Response object
  * @param next NextFunction for error handling
  */
+
 export const getProducts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0; 
-    const search = req.query.search as string || '';
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
+    const search = (req.query.search as string) || "";
 
-    const query = search
-      ? {
-          $or: [
-            { name: { $regex: search, $options: 'i' } },
-            { sku: { $regex: search, $options: 'i' } },
-            { category: { $regex: search, $options: 'i' } },
-          ],
-        }
-      : {};
+    const match: any = {};
 
-    const total = await Product.countDocuments(query);
+    if (search) {
+      match.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { sku: { $regex: search, $options: "i" } },
+        { "category.name": { $regex: search, $options: "i" } }, // search inside category name
+      ];
+    }
 
-    const productsQuery = Product.find(query).sort({ category: 1 }).skip((page - 1) * limit);
+    // Build aggregation pipeline
+    const pipeline: any[] = [
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "category",
+        },
+      },
+      { $unwind: "$category" },
+    ];
+
+    if (search) pipeline.push({ $match: match });
+
+    pipeline.push(
+      { $sort: { "category.name": 1 } }, // sort by category name
+      { $skip: (page - 1) * limit }
+    );
 
     if (limit > 0) {
-    productsQuery.limit(limit);
+      pipeline.push({ $limit: limit });
     }
-    const products = await productsQuery;
+
+    // Execute both: products and total count
+    const [products, totalResult] = await Promise.all([
+      Product.aggregate(pipeline),
+      Product.aggregate([
+        {
+          $lookup: {
+            from: "categories",
+            localField: "category",
+            foreignField: "_id",
+            as: "category",
+          },
+        },
+        { $unwind: "$category" },
+        ...(search ? [{ $match: match }] : []),
+        { $count: "total" },
+      ]),
+    ]);
+
+    const total = totalResult.length > 0 ? totalResult[0].total : 0;
 
     res.json({
       products,
       currentPage: page,
-      totalPages: Math.ceil(total / limit),
+      totalPages: limit > 0 ? Math.ceil(total / limit) : 1,
       totalProducts: total,
     });
   } catch (error) {
     next(error);
   }
 };
+
 
 /**
  * Create a new product
