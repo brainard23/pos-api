@@ -15,13 +15,15 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 0;
     const search = (req.query.search as string) || "";
 
-    const match: any = {};
+    // Base match condition: only active products
+    const match: any = { isActive: true };
 
+    // Add search filters if provided
     if (search) {
       match.$or = [
         { name: { $regex: search, $options: "i" } },
         { sku: { $regex: search, $options: "i" } },
-        { "category.name": { $regex: search, $options: "i" } }, // search inside category name
+        { "category.name": { $regex: search, $options: "i" } },
       ];
     }
 
@@ -36,14 +38,10 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
         },
       },
       { $unwind: "$category" },
+      { $match: match }, // 👈 filter by isActive + search
+      { $sort: { "category.name": 1 } },
+      { $skip: (page - 1) * limit },
     ];
-
-    if (search) pipeline.push({ $match: match });
-
-    pipeline.push(
-      { $sort: { "category.name": 1 } }, // sort by category name
-      { $skip: (page - 1) * limit }
-    );
 
     if (limit > 0) {
       pipeline.push({ $limit: limit });
@@ -62,7 +60,7 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
           },
         },
         { $unwind: "$category" },
-        ...(search ? [{ $match: match }] : []),
+        { $match: match },
         { $count: "total" },
       ]),
     ]);
@@ -79,7 +77,6 @@ export const getProducts = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
-
 
 /**
  * Create a new product
