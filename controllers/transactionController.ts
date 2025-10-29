@@ -29,6 +29,10 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     }
 
     const total = await Transaction.countDocuments(query);
+    const totalProfit = await Transaction.aggregate([
+      { $match: query },
+      { $group: { _id: null, profit: { $sum: '$profit' } } }
+    ]);
     const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -82,7 +86,7 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    const { items, paymentMethod, discount } = req.body;
+    const { items, paymentMethod, discount = 0 } = req.body;
 
     // Validate and process items
     const processedItems = await Promise.all(items.map(async (item: any) => {
@@ -91,15 +95,11 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
         throw new Error(`Product not found: ${item.product}`);
       }
 
-      // Check stock availability
       if (product.stock < item.quantity) {
         throw new Error(`Insufficient stock for product: ${product.name}`);
       }
 
-      // Calculate subtotal
       const subtotal = product.price * item.quantity;
-
-      // Update product stock
       product.stock -= item.quantity;
       await product.save();
 
@@ -107,29 +107,26 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
         product: product._id,
         quantity: item.quantity,
         price: product.price,
-        subtotal
+        subtotal,
       };
     }));
 
-    // Calculate totals
+    // Compute totals safely
     const subtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const discountAmount = discount ? (discount.type === 'percentage' ? (subtotal * discount.value / 100) : discount.value) : 0;
-    const total = subtotal - discountAmount;
-
-    // Create transaction
+    const safeDiscount = isNaN(discount) ? 0 : discount;
+    const total = subtotal - safeDiscount;
+    console.log(`Creating transaction with subtotal: ${subtotal}, discount: ${safeDiscount}, total: ${total}`);
     const transaction = new Transaction({
       items: processedItems,
       paymentMethod,
-      discount,
       subtotal,
-      discountAmount,
-      total,
-      status: 'completed' // Auto-complete the transaction
+      total: total,
+      discount: safeDiscount, 
+     status: 'completed',
     });
 
-    await transaction.save();
 
-    // Populate product details in response
+    await transaction.save();
     await transaction.populate('items.product', 'name sku price cost');
 
     res.status(201).json(transaction);
@@ -137,6 +134,7 @@ export const createTransaction = async (req: Request, res: Response, next: NextF
     next(error);
   }
 };
+
 
 /**
  * Cancel a transaction

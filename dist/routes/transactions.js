@@ -14,10 +14,10 @@ const validateTransaction = [
     (0, express_validator_1.body)('items.*.product').isMongoId().withMessage('Invalid product ID'),
     (0, express_validator_1.body)('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
     (0, express_validator_1.body)('paymentMethod').isIn(['cash', 'gcash', 'credit_card', 'card']).withMessage('Invalid payment method'),
-    (0, express_validator_1.body)('discount').optional().isObject().withMessage('Discount must be an object'),
-    (0, express_validator_1.body)('discount.type').optional().isIn(['percentage', 'fixed']).withMessage('Invalid discount type'),
-    (0, express_validator_1.body)('discount.value').optional().isFloat({ min: 0 }).withMessage('Discount value must be a positive number'),
-    (0, express_validator_1.body)('discount.code').optional().isString().trim().withMessage('Discount code must be a string')
+    // (0, express_validator_1.body)('discount').optional().isObject().withMessage('Discount must be an object'),
+    // (0, express_validator_1.body)('discount.type').optional().isIn(['percentage', 'fixed']).withMessage('Invalid discount type'),
+    // (0, express_validator_1.body)('discount.value').optional().isFloat({ min: 0 }).withMessage('Discount value must be a positive number'),
+    // (0, express_validator_1.body)('discount.code').optional().isString().trim().withMessage('Discount code must be a string')
 ];
 router.get('/', auth_1.protect, transactionController_1.getTransactions);
 router.get('/stats', auth_1.protect, transactionController_1.getTransactionStats);

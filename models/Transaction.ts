@@ -4,14 +4,8 @@ import { IProduct } from './Product';
 export interface ITransactionItem {
   product: IProduct['_id'];
   quantity: number;
-  price: number;
+  price: number;     // Selling price
   subtotal: number;
-}
-
-export interface IDiscount {
-  type: 'percentage' | 'fixed';
-  value: number;
-  code?: string;
 }
 
 export type PaymentMethod = 'cash' | 'gcash' | 'credit_card' | 'card';
@@ -19,9 +13,10 @@ export type PaymentMethod = 'cash' | 'gcash' | 'credit_card' | 'card';
 export interface ITransaction extends Document {
   items: ITransactionItem[];
   subtotal: number;
-  discount?: IDiscount;
+  discount?: number;
   discountAmount: number;
   total: number;
+  profit: number;
   paymentMethod: PaymentMethod;
   status: 'pending' | 'completed' | 'cancelled';
   createdAt: Date;
@@ -32,107 +27,107 @@ const transactionItemSchema = new Schema({
   product: {
     type: Schema.Types.ObjectId,
     ref: 'Product',
-    required: [true, 'Product is required']
+    required: [true, 'Product is required'],
   },
   quantity: {
     type: Number,
     required: [true, 'Quantity is required'],
-    min: [1, 'Quantity must be at least 1']
+    min: [1, 'Quantity must be at least 1'],
   },
   price: {
     type: Number,
     required: [true, 'Price is required'],
-    min: [0, 'Price cannot be negative']
+    min: [0, 'Price cannot be negative'],
   },
   subtotal: {
     type: Number,
     required: [true, 'Subtotal is required'],
-    min: [0, 'Subtotal cannot be negative']
-  }
+    min: [0, 'Subtotal cannot be negative'],
+  },
 });
 
-const discountSchema = new Schema({
-  type: {
-    type: String,
-    enum: ['percentage', 'fixed'],
-    required: [true, 'Discount type is required']
-  },
-  value: {
-    type: Number,
-    required: [true, 'Discount value is required'],
-    min: [0, 'Discount value cannot be negative']
-  },
-  code: {
-    type: String,
-    trim: true
-  }
-});
-
-const transactionSchema = new Schema({
-  items: {
-    type: [transactionItemSchema],
-    required: [true, 'Transaction items are required'],
-    validate: {
-      validator: function(items: ITransactionItem[]) {
-        return items.length > 0;
+const transactionSchema = new Schema<ITransaction>(
+  {
+    items: {
+      type: [transactionItemSchema],
+      required: [true, 'Transaction items are required'],
+      validate: {
+        validator: function (items: ITransactionItem[]) {
+          return items.length > 0;
+        },
+        message: 'Transaction must have at least one item',
       },
-      message: 'Transaction must have at least one item'
-    }
+    },
+    subtotal: {
+      type: Number,
+      required: [true, 'Subtotal is required'],
+      min: [0, 'Subtotal cannot be negative'],
+    },
+    discount: {
+      type: Number,
+      min: [0, 'Discount cannot be negative'],
+      default: 0,
+    },
+    discountAmount: {
+      type: Number,
+      required: [true, 'Discount amount is required'],
+      min: [0, 'Discount amount cannot be negative'],
+      default: 0,
+    },
+    total: {
+      type: Number,
+      required: [true, 'Total is required'],
+      min: [0, 'Total cannot be negative'],
+    },
+    profit: {
+      type: Number,
+      required: [true, 'Profit is required'],
+      min: [0, 'Profit cannot be negative'],
+      default: 0,
+    },
+    paymentMethod: {
+      type: String,
+      enum: ['cash', 'gcash', 'credit_card', 'card'],
+      required: [true, 'Payment method is required'],
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'completed', 'cancelled'],
+      default: 'pending',
+    },
   },
-  subtotal: {
-    type: Number,
-    required: [true, 'Subtotal is required'],
-    min: [0, 'Subtotal cannot be negative']
-  },
-  discount: {
-    type: discountSchema
-  },
-  discountAmount: {
-    type: Number,
-    required: [true, 'Discount amount is required'],
-    min: [0, 'Discount amount cannot be negative'],
-    default: 0
-  },
-  total: {
-    type: Number,
-    required: [true, 'Total is required'],
-    min: [0, 'Total cannot be negative']
-  },
-  paymentMethod: {
-    type: String,
-    enum: ['cash', 'gcash', 'credit_card', 'card'],
-    required: [true, 'Payment method is required']
-  },
-  status: {
-    type: String,
-    enum: ['pending', 'completed', 'cancelled'],
-    default: 'pending'
+  {
+    timestamps: true,
   }
-}, {
-  timestamps: true
-});
+);
 
-// Create indexes for better query performance
-transactionSchema.index({ createdAt: -1 });
-transactionSchema.index({ status: 1 });
-transactionSchema.index({ paymentMethod: 1 });
+// ✅ Pre-save hook: calculate subtotal, discount, total, and profit
+transactionSchema.pre('save', async function (next) {
+  const Product = mongoose.model('Product');
 
-// Pre-save middleware to calculate totals
-transactionSchema.pre('save', function(next) {
-  // Calculate subtotal from items
+  // Calculate subtotal
   this.subtotal = this.items.reduce((sum, item) => sum + item.subtotal, 0);
 
-  // Calculate discount amount if discount exists
-  if (this.discount) {
-    if (this.discount.type === 'percentage') {
-      this.discountAmount = (this.subtotal * this.discount.value) / 100;
-    } else {
-      this.discountAmount = this.discount.value;
+  // Calculate discount amount and total
+  this.discountAmount = this.discount || 0;
+  this.total = Math.max(this.subtotal - this.discountAmount, 0);
+
+  // ✅ Calculate profit for each item
+  let totalProfit = 0;
+
+  for (const item of this.items) {
+    const product = await Product.findById(item.product).lean<IProduct>();
+    if (product && typeof product.cost === 'number') {
+      const itemProfit = (item.price - product.cost) * item.quantity;
+      totalProfit += itemProfit > 0 ? itemProfit : 0; 
     }
   }
 
-  // Calculate total
-  this.total = this.subtotal - this.discountAmount;
+ // ✅ Deduct the discount from total profit
+  const adjustedProfit = totalProfit - (this.discountAmount || 0);
+
+  // Ensure profit doesn’t go below zero
+  this.profit = adjustedProfit > 0 ? adjustedProfit : 0;
 
   next();
 });
@@ -141,4 +136,9 @@ transactionSchema.pre('save', function(next) {
 transactionSchema.set('toJSON', { virtuals: true });
 transactionSchema.set('toObject', { virtuals: true });
 
-export default mongoose.model<ITransaction>('Transaction', transactionSchema); 
+// Indexes for performance
+transactionSchema.index({ createdAt: -1 });
+transactionSchema.index({ status: 1 });
+transactionSchema.index({ paymentMethod: 1 });
+
+export default mongoose.model<ITransaction>('Transaction', transactionSchema);
