@@ -29,10 +29,10 @@ export const getTransactions = async (req: Request, res: Response, next: NextFun
     }
 
     const total = await Transaction.countDocuments(query);
-    const totalProfit = await Transaction.aggregate([
-      { $match: query },
-      { $group: { _id: null, profit: { $sum: '$profit' } } }
-    ]);
+    // const totalProfit = await Transaction.aggregate([
+    //   { $match: query },
+    //   { $group: { _id: null, profit: { $sum: '$profit' } } }
+    // ]);
     const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
